@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
+const fs = require("fs");
 
 async function autoScroll(page) {
   await page.evaluate(async () => {
@@ -22,7 +23,7 @@ async function autoScroll(page) {
 
 async function getHighlightClips(url) {
   const browser = await puppeteer.launch({
-    // headless: false,
+    headless: false,
     defaultViewport: false,
   });
   const page = await browser.newPage();
@@ -66,54 +67,38 @@ if (!websiteUrl) {
   process.exit(1);
 }
 
-async function openUrlsInPuppeteerTabs(urls) {
-  const browser = await puppeteer.launch({ headless: false });
+const addAllVideosToIndexPage = (urls) => {
+  const htmlContent = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Video Index</title>
+  </head>
+  <body>
+      <div>
+          ${urls
+            .map(
+              (url) =>
+                `<div><video controls><source src="${url}" type="video/mp4"></video></div>`
+            )
+            .join("\n")}
+      </div>
+  </body>
+  </html>
+`;
 
-  try {
-    // Loop through each URL in the list
-    for (let i = urls.length - 1; i >= 0; i--) {
-      const url = urls[i];
-      try {
-        const page = await browser.newPage();
+  // Write the HTML content to a file named index.html
+  fs.writeFileSync("index.html", htmlContent);
+};
 
-        // Navigate to the URL
-        await page.goto(url, { waitUntil: "networkidle2" });
-
-        // Mute all videos on the page
-        await page.evaluate(() => {
-          const videos = document.querySelectorAll("video");
-          videos.forEach((video) => {
-            video.muted = true;
-            video.autoplay = false;
-          });
-        });
-
-        // You can add additional logic here to interact with the page if needed
-
-        console.log(`Opened ${url} in a new tab`);
-
-        // Close the page to free up resources
-        // await page.close();
-      } catch (error) {
-        console.error(`Error opening ${url} in a new tab:`, error.message);
-      }
-    }
-
-    console.log("All URLs opened successfully.");
-  } catch (error) {
-    console.error("Error:", error.message);
-  } finally {
-    // Close the browser when done
-    // await browser.close();
-  }
-}
-
-// Example usage
 getHighlightClips(websiteUrl)
   .then(async (videos) => {
     const filtered = videos.filter((e) => e.src).map((e) => e.src);
     console.log("Highlight Clips:", filtered);
-    openUrlsInPuppeteerTabs(filtered);
+    // openUrlsInPuppeteerTabs(filtered);
+    addAllVideosToIndexPage(filtered);
   })
   .catch((error) => {
     console.error("Script failed:", error.message);
